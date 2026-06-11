@@ -156,9 +156,7 @@ function escapeHtml(s) {
 async function loadCurrent() {
   try {
     currentRound = await apiGet(`/api/round/current?clientId=${clientId}`);
-    if (currentRound && currentRound.myGuess) {
-      myGuess = currentRound.myGuess;
-    }
+    myGuess = currentRound?.myGuess ?? null;
     render();
   } catch (e) {
     render();
