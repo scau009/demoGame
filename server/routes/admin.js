@@ -1,0 +1,81 @@
+import { Router } from 'express';
+import { login, authMiddleware } from '../auth.js';
+import { findOpenRound, insertRound, findRoundById, revealRound, findGuessesByRound, countGuesses } from '../db.js';
+import { rankGuesses } from '../scoring.js';
+import { VALID_SUITS, VALID_RANKS } from '../config.js';
+import { broadcast } from '../ws.js';
+
+const router = Router();
+
+// POST /api/admin/login
+router.post('/login', (req, res) => {
+  const { username, password } = req.body;
+  const result = login(username || '', password || '');
+  if (!result) return res.status(401).json({ error: 'unauthorized', message: '用户名或密码错误' });
+  return res.json(result);
+});
+
+// POST /api/admin/round
+router.post('/round', authMiddleware, (req, res) => {
+  const open = findOpenRound();
+  if (open) return res.status(409).json({ error: 'round_exists', message: '已有进行中的局，请先公布上一局' });
+
+  const { suit, rank } = req.body;
+  if (!VALID_SUITS.has(suit) || !VALID_RANKS.has(rank)) {
+    return res.status(400).json({ error: 'invalid_input', message: '花色或面值无效' });
+  }
+
+  const round = insertRound(suit, rank);
+  broadcast({ event: 'round:opened', roundId: round.id, createdAt: round.created_at });
+  return res.json(round);
+});
+
+// POST /api/admin/round/:id/reveal
+router.post('/round/:id/reveal', authMiddleware, (req, res) => {
+  const id = Number(req.params.id);
+  const round = findRoundById(id);
+  if (!round) return res.status(404).json({ error: 'round_not_found', message: '该局不存在' });
+  if (round.status === 'revealed') return res.status(409).json({ error: 'already_revealed', message: '该局已公布' });
+
+  const revealedAt = revealRound(id);
+  const guesses = findGuessesByRound(id);
+  const ranking = rankGuesses(
+    { suit: round.answer_suit, rank: round.answer_rank },
+    guesses.map(g => ({
+      nickname: g.nickname,
+      clientId: g.client_id,
+      suit: g.guess_suit,
+      rank: g.guess_rank,
+      submittedAt: g.submitted_at,
+    }))
+  );
+
+  broadcast({
+    event: 'round:revealed',
+    roundId: id,
+    answer: { suit: round.answer_suit, rank: round.answer_rank },
+    ranking,
+    revealedAt,
+  });
+
+  return res.json({ ok: true, ranking });
+});
+
+// GET /api/admin/round/:id (管理员查看，含谜底和实时统计)
+router.get('/round/:id', authMiddleware, (req, res) => {
+  const id = Number(req.params.id);
+  const round = findRoundById(id);
+  if (!round) return res.status(404).json({ error: 'round_not_found', message: '该局不存在' });
+  const count = countGuesses(id);
+  return res.json({ ...round, guessCount: count });
+});
+
+// GET /api/admin/current-round (管理员查看当前局，含谜底)
+router.get('/current-round', authMiddleware, (_req, res) => {
+  const round = findOpenRound();
+  if (!round) return res.json(null);
+  const count = countGuesses(round.id);
+  return res.json({ ...round, guessCount: count });
+});
+
+export default router;
