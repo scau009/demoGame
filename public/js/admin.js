@@ -45,20 +45,22 @@ function render() {
 }
 
 function renderLogin() {
-  return `<h1>管理后台</h1>
+  return `<div class="ornament" style="padding-top:30px">🎪 庄家驾到 🎪</div>
+<h1>扑克猜心</h1>
+<p class="deco-banner">✦ 团建庆典 · 庄家入口 ✦</p>
 <div class="card login-form">
-  <h2>管理员登录</h2>
-  <input type="text" id="login-user" placeholder="用户名" autofocus>
-  <input type="password" id="login-pass" placeholder="密码" style="margin-top:12px">
+  <h2>验明正身</h2>
+  <input type="text" id="login-user" placeholder="庄家名号" autofocus>
+  <input type="password" id="login-pass" placeholder="通关密语" style="margin-top:12px">
   <p class="error-msg" id="login-err"></p>
-  <button class="btn btn-primary" id="do-login">登录</button>
+  <button class="btn btn-primary" id="do-login">🔑 进入庄家席</button>
 </div>`;
 }
 
 function renderNewRound() {
   const suitHtml = SUITS.map(s => {
     const sel = selectedSuit === s.id ? ' selected' : '';
-    return `<button class="suit-btn${sel}" data-suit="${s.id}">${s.label}<br>${s.name}</button>`;
+    return `<button class="suit-btn${sel}" data-suit="${s.id}">${s.label}<span>${s.name}</span></button>`;
   }).join('');
   const rankHtml = RANKS.map(r => {
     const sel = selectedRank === r.v ? ' selected' : '';
@@ -66,39 +68,44 @@ function renderNewRound() {
   }).join('');
   const canStart = selectedSuit && selectedRank;
 
-  return `<h1>管理后台</h1>
+  return `<div class="ornament">🎪 庄家席 🎪</div>
+<h1>新开局</h1>
+<p class="deco-banner">✦ 布下天机 ✦</p>
 <div class="card">
-  <p style="color:var(--muted);font-size:0.85rem;margin-bottom:12px">设置本局谜底</p>
-  <div class="section-title">花色</div>
+  <p style="color:var(--muted);font-size:0.85rem;margin-bottom:14px;text-align:center">悄悄选一张牌作为本轮谜底</p>
+  <div class="section-title">选花色</div>
   <div class="suit-grid" id="suit-picker">${suitHtml}</div>
-  <div class="section-title">面值</div>
+  <div class="section-title">选面值</div>
   <div class="rank-grid" id="rank-picker">${rankHtml}</div>
-  <button class="btn btn-primary" id="start-round" ${canStart ? '' : 'disabled'} style="margin-top:20px">开始本局</button>
+  <button class="btn btn-primary" id="start-round" ${canStart ? '' : 'disabled'} style="margin-top:24px">${canStart ? '🎯 开局！' : '👆 请选好花色和面值'}</button>
 </div>`;
 }
 
 function renderOpenRound() {
   const s = SUITS.find(x => x.id === currentRound.answer_suit);
   const r = RANKS.find(x => x.v === currentRound.answer_rank);
-  return `<h1>管理后台</h1>
+  return `<div class="ornament">🎪 庄家席 🎪</div>
+<h1>局已开局</h1>
+<p class="deco-banner">✦ 静候各路英雄入局 ✦</p>
 <div class="card">
   <div class="answer-display">
     <div>
-      <p style="color:var(--muted);font-size:0.8rem">当前谜底</p>
+      <p style="color:var(--muted);font-size:0.75rem;letter-spacing:2px">天 机 在 此</p>
       <div class="answer-card">${s.label} ${r.label}</div>
-      <p style="color:var(--muted);font-size:0.8rem;margin-top:4px">${s.name} ${r.label}</p>
+      <p style="color:var(--muted);font-size:0.8rem;margin-top:6px">${s.name} ${r.label}</p>
     </div>
   </div>
 </div>
 <div class="card" style="text-align:center">
-  <p style="font-size:0.9rem;color:var(--muted)">已提交猜测</p>
-  <p id="count-display" style="font-size:2.5rem;font-weight:900;color:var(--accent)">${guessCount}</p>
+  <p style="font-size:0.9rem;color:var(--muted);letter-spacing:1px">已有豪杰入局</p>
+  <p id="count-display" style="font-size:3rem;font-weight:900;color:var(--gold-light);line-height:1.2">${guessCount}</p>
+  <p style="font-size:0.75rem;color:var(--muted)">人</p>
 </div>
-<button class="btn btn-primary fixed-bottom" id="reveal-round">公布排名</button>`;
+<button class="btn btn-primary fixed-bottom" id="reveal-round">🏆 揭榜公布</button>`;
 }
 
 function renderResult() {
-  if (!currentRound.revealData) return '<h1>管理后台</h1><div class="status-banner"><p>加载中…</p></div>';
+  if (!currentRound.revealData) return `<div class="ornament">🎪 庄家席 🎪</div><h1>扑克猜心</h1><div class="status-banner"><p style="color:var(--muted)">揭榜中...</p></div>`;
   const { answer, ranking } = currentRound.revealData;
   const aSuit = SUITS.find(x => x.id === answer.suit);
   const aRank = RANKS.find(x => x.v === answer.rank);
@@ -110,28 +117,31 @@ function renderResult() {
     return `<tr>
       <td><span class="rank-badge ${rankCls}">${i + 1}</span></td>
       <td>${escapeHtml(g.nickname)}</td>
-      <td>${gSuit.label} ${gRank.label}</td>
-      <td>${g.rankDiff}</td>
-      <td>${g.suitMatch === 0 ? '✓' : '-'}</td>
+      <td style="font-size:1.1rem;font-weight:700">${gSuit.label} ${gRank.label}</td>
+      <td style="color:var(--muted)">${g.rankDiff}</td>
+      <td>${g.suitMatch === 0 ? '<span style="color:#6BCB77">✓</span>' : '-'}</td>
     </tr>`;
   }).join('');
 
-  return `<h1>管理后台</h1>
+  return `<div class="ornament">🏆 揭榜大典 🏆</div>
+<h1>胜负已分</h1>
+<p class="deco-banner">✦ 天机揭晓 ✦</p>
 <div class="card">
   <div class="answer-display">
     <div>
-      <p style="color:var(--muted);font-size:0.8rem">谜底</p>
+      <p style="color:var(--muted);font-size:0.75rem;letter-spacing:2px">谜 底</p>
       <div class="answer-card">${aSuit.label} ${aRank.label}</div>
+      <p style="color:var(--muted);font-size:0.8rem;margin-top:6px">${aSuit.name} ${aRank.label}</p>
     </div>
   </div>
 </div>
-<h2>排行榜 (${ranking.length}人)</h2>
+<h2>🏅 英雄榜 <span style="font-size:0.8rem;color:var(--muted)">${ranking.length}人参与</span></h2>
 <table class="ranking-table">
-  <thead><tr><th>排名</th><th>玩家</th><th>猜测</th><th>面值差</th><th>花色</th></tr></thead>
+  <thead><tr><th>排名</th><th>玩家</th><th>猜测</th><th>分差</th><th>花色</th></tr></thead>
   <tbody>${rows}</tbody>
 </table>
-<div style="margin:20px 0">
-  <button class="btn btn-primary" id="new-round">开新局</button>
+<div style="margin:24px 0">
+  <button class="btn btn-primary" id="new-round">🔄 再开一局</button>
 </div>`;
 }
 
@@ -153,7 +163,6 @@ async function loadCurrent() {
   }
 }
 
-// periodic poll for guess count (WS doesn't give per-admin count details)
 let pollTimer = null;
 function startPoll() {
   stopPoll();
@@ -184,7 +193,7 @@ document.addEventListener('click', async (e) => {
       setToken(token);
       await loadCurrent();
     } catch (ex) {
-      err.textContent = ex.message || '登录失败';
+      err.textContent = ex.message || '名号或密语有误';
     }
     return;
   }
@@ -206,7 +215,7 @@ document.addEventListener('click', async (e) => {
       startPoll();
       render();
     } catch (ex) {
-      alert(ex.message || '开局失败');
+      alert(ex.message || '开局失利，请重试');
     }
     return;
   }
@@ -219,7 +228,7 @@ document.addEventListener('click', async (e) => {
       currentRound = { ...currentRound, status: 'revealed', revealData: { answer: { suit: currentRound.answer_suit, rank: currentRound.answer_rank }, ranking: data.ranking } };
       render();
     } catch (ex) {
-      alert(ex.message || '公布失败');
+      alert(ex.message || '揭榜失利，请重试');
     }
     return;
   }
@@ -245,5 +254,4 @@ connectWs(async (event) => {
   }
 });
 
-// init
 if (token) loadCurrent(); else render();

@@ -1,0 +1,10 @@
+node_modules/
+data/
+.git/
+.env
+.superpowers/
+.claude/
+docs/
+test/
+scripts/
+package-lock.json
