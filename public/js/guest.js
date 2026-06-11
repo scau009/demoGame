@@ -116,6 +116,7 @@ function renderResult() {
       <td style="font-size:1.1rem;font-weight:700">${gSuit.label} ${gRank.label}</td>
       <td style="color:var(--muted)">${g.rankDiff}</td>
       <td>${g.suitMatch === 0 ? '<span style="color:#6BCB77">✓</span>' : '-'}</td>
+      <td style="color:var(--muted);font-size:0.8rem">${formatTime(g.submittedAt)}</td>
     </tr>`;
   }).join('');
 
@@ -137,7 +138,7 @@ function renderResult() {
 ${myRankText ? `<p class="info-row" style="margin-bottom:12px">${myRankText}</p>` : ''}
 <h2>🏅 英雄榜 <span style="font-size:0.8rem;color:var(--muted)">${ranking.length}人参与</span></h2>
 <table class="ranking-table">
-  <thead><tr><th>排名</th><th>玩家</th><th>猜测</th><th>分差</th><th>花色</th></tr></thead>
+  <thead><tr><th>排名</th><th>玩家</th><th>猜测</th><th>分差</th><th>花色</th><th>时间</th></tr></thead>
   <tbody>${rows}</tbody>
 </table>`;
 }
@@ -151,6 +152,13 @@ function escapeHtml(s) {
   const d = document.createElement('div');
   d.textContent = s;
   return d.innerHTML;
+}
+
+function formatTime(ts) {
+  const d = new Date(ts * 1000);
+  return d.getHours().toString().padStart(2, '0') + ':' +
+         d.getMinutes().toString().padStart(2, '0') + ':' +
+         d.getSeconds().toString().padStart(2, '0');
 }
 
 async function loadCurrent() {

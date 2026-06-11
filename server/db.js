@@ -41,6 +41,7 @@ const stmts = {
   insertGuess: db.prepare('INSERT INTO guesses (round_id, nickname, client_id, guess_suit, guess_rank, submitted_at) VALUES (?, ?, ?, ?, ?, ?)'),
   findGuessesByRound: db.prepare('SELECT * FROM guesses WHERE round_id = ? ORDER BY submitted_at ASC'),
   countGuesses: db.prepare('SELECT COUNT(*) AS cnt FROM guesses WHERE round_id = ?'),
+  findAllRounds: db.prepare('SELECT * FROM rounds ORDER BY id DESC'),
 };
 
 function findOpenRound() {
@@ -81,4 +82,8 @@ function countGuesses(roundId) {
   return stmts.countGuesses.get(roundId).cnt;
 }
 
-export { db, findOpenRound, findRoundById, insertRound, revealRound, findGuess, insertGuess, findGuessesByRound, countGuesses };
+function findAllRounds() {
+  return stmts.findAllRounds.all();
+}
+
+export { db, findOpenRound, findRoundById, insertRound, revealRound, findGuess, insertGuess, findGuessesByRound, countGuesses, findAllRounds };

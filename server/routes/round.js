@@ -44,7 +44,7 @@ router.post('/:id/guess', (req, res) => {
   if (existing) return res.status(409).json({ error: 'already_submitted', message: '你已提交过猜测' });
 
   insertGuess(id, nickname.trim(), clientId, suit, rank);
-  broadcast({ event: 'guess:submitted', roundId: id, count: countGuesses(id) });
+  broadcast({ event: 'guess:submitted', roundId: id, count: countGuesses(id), guess: { nickname: nickname.trim(), suit, rank } });
   return res.json({ ok: true });
 });
 

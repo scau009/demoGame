@@ -1,6 +1,6 @@
 import { Router } from 'express';
 import { login, authMiddleware } from '../auth.js';
-import { findOpenRound, insertRound, findRoundById, revealRound, findGuessesByRound, countGuesses } from '../db.js';
+import { findOpenRound, insertRound, findRoundById, revealRound, findGuessesByRound, countGuesses, findAllRounds } from '../db.js';
 import { rankGuesses } from '../scoring.js';
 import { VALID_SUITS, VALID_RANKS } from '../config.js';
 import { broadcast } from '../ws.js';
@@ -61,13 +61,47 @@ router.post('/round/:id/reveal', authMiddleware, (req, res) => {
   return res.json({ ok: true, ranking });
 });
 
+// GET /api/admin/rounds (历史记录列表)
+router.get('/rounds', authMiddleware, (_req, res) => {
+  const rounds = findAllRounds();
+  const list = rounds.map(r => ({
+    id: r.id,
+    answer_suit: r.answer_suit,
+    answer_rank: r.answer_rank,
+    status: r.status,
+    created_at: r.created_at,
+    revealed_at: r.revealed_at,
+    guessCount: countGuesses(r.id),
+  }));
+  return res.json(list);
+});
+
 // GET /api/admin/round/:id (管理员查看，含谜底和实时统计)
 router.get('/round/:id', authMiddleware, (req, res) => {
   const id = Number(req.params.id);
   const round = findRoundById(id);
   if (!round) return res.status(404).json({ error: 'round_not_found', message: '该局不存在' });
   const count = countGuesses(id);
-  return res.json({ ...round, guessCount: count });
+  const guesses = findGuessesByRound(id).map(g => ({
+    nickname: g.nickname,
+    suit: g.guess_suit,
+    rank: g.guess_rank,
+    submittedAt: g.submitted_at,
+  }));
+  let ranking = null;
+  if (round.status === 'revealed') {
+    ranking = rankGuesses(
+      { suit: round.answer_suit, rank: round.answer_rank },
+      guesses.map(g => ({
+        nickname: g.nickname,
+        clientId: '',
+        suit: g.suit,
+        rank: g.rank,
+        submittedAt: g.submittedAt,
+      }))
+    );
+  }
+  return res.json({ ...round, guessCount: count, guesses, ranking });
 });
 
 // GET /api/admin/current-round (管理员查看当前局，含谜底)
@@ -75,7 +109,13 @@ router.get('/current-round', authMiddleware, (_req, res) => {
   const round = findOpenRound();
   if (!round) return res.json(null);
   const count = countGuesses(round.id);
-  return res.json({ ...round, guessCount: count });
+  const guesses = findGuessesByRound(round.id).map(g => ({
+    nickname: g.nickname,
+    suit: g.guess_suit,
+    rank: g.guess_rank,
+    submittedAt: g.submitted_at,
+  }));
+  return res.json({ ...round, guessCount: count, guesses });
 });
 
 export default router;

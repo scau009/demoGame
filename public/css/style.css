@@ -155,6 +155,15 @@ input:focus {
   box-shadow: none;
 }
 .btn-small { padding: 10px 20px; font-size: 0.9rem; display: inline-block; width: auto; }
+.btn-secondary {
+  background: var(--surface);
+  color: var(--muted);
+  border: 1px solid var(--border);
+}
+.btn-secondary:active {
+  background: rgba(255, 248, 231, 0.12);
+  color: var(--text-warm);
+}
 
 /* ---- suit grid ---- */
 .suit-grid { display: grid; grid-template-columns: repeat(4, 1fr); gap: 10px; margin: 12px 0; }
@@ -258,6 +267,9 @@ input:focus {
   background: linear-gradient(135deg, #E8A87C 0%, #CD7F32 100%);
   color: #3D0C0C; box-shadow: 0 0 10px rgba(205, 127, 50, 0.3);
 }
+
+.ranking-table tr.clickable { cursor: pointer; }
+.ranking-table tr.clickable:hover { background: rgba(255, 248, 231, 0.06); }
 
 .ranking-table tr { animation: rowIn 0.4s ease both; }
 .ranking-table tr:nth-child(1) { animation-delay: 0.05s; }
