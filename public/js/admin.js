@@ -17,9 +17,10 @@ let selectedSuit = null;
 let selectedRank = null;
 let guessCount = 0;
 let guesses = [];
-let mode = 'current'; // 'current' | 'history' | 'history-detail'
+let mode = 'current'; // 'current' | 'history' | 'history-detail' | 'players'
 let historyRounds = [];
 let historyDetail = null;
+let blockedPlayers = [];
 
 async function authFetch(path, opts = {}) {
   const res = await fetch(path, {
@@ -41,6 +42,8 @@ function render() {
   }
   if (mode === 'history') {
     app.innerHTML = renderHistoryList();
+  } else if (mode === 'players') {
+    app.innerHTML = renderPlayers();
   } else if (mode === 'history-detail' && historyDetail) {
     app.innerHTML = renderHistoryDetail();
   } else if (!currentRound) {
@@ -87,7 +90,8 @@ function renderNewRound() {
   <div class="rank-grid" id="rank-picker">${rankHtml}</div>
   <button class="btn btn-primary" id="start-round" ${canStart ? '' : 'disabled'} style="margin-top:24px">${canStart ? '🎯 开局！' : '👆 请选好花色和面值'}</button>
 </div>
-<button class="btn btn-secondary" id="show-history" style="margin-top:16px">📜 历史记录</button>`;
+<button class="btn btn-secondary" id="show-history" style="margin-top:16px">📜 历史记录</button>
+<button class="btn btn-secondary" id="show-players" style="margin-top:12px">👥 人员管理</button>`;
 }
 
 function renderOpenRound() {
@@ -166,7 +170,8 @@ function renderResult() {
 <div style="margin:24px 0">
   <button class="btn btn-primary" id="new-round">🔄 再开一局</button>
 </div>
-<button class="btn btn-secondary" id="show-history" style="margin-bottom:24px">📜 历史记录</button>`;
+<button class="btn btn-secondary" id="show-history" style="margin-bottom:12px">📜 历史记录</button>
+<button class="btn btn-secondary" id="show-players" style="margin-bottom:24px">👥 人员管理</button>`;
 }
 
 function escapeHtml(s) {
@@ -263,6 +268,24 @@ ${hasResult ? `<h2>🏅 英雄榜 <span style="font-size:0.8rem;color:var(--mute
 <button class="btn btn-secondary" id="back-to-history" style="margin-top:16px">🔙 返回列表</button>`;
 }
 
+function renderPlayers() {
+  const rows = blockedPlayers.map(p => {
+    return `<tr>
+      <td>${escapeHtml(p.nickname)}</td>
+      <td style="font-size:0.8rem;color:var(--muted)">${formatDate(p.blocked_at)}</td>
+      <td><button class="btn btn-small btn-secondary unblock-btn" data-client-id="${p.client_id}">🔓 解禁</button></td>
+    </tr>`;
+  }).join('');
+  return `<div class="ornament">👥 人员管理</div>
+<h1>获奖者清单</h1>
+<p class="deco-banner">✦ 禁赛名单管理 ✦</p>
+${blockedPlayers.length ? `<table class="ranking-table">
+  <thead><tr><th>玩家</th><th>封禁时间</th><th>操作</th></tr></thead>
+  <tbody>${rows}</tbody>
+</table>` : '<div class="status-banner"><p style="color:var(--muted)">暂无被封禁玩家</p></div>'}
+<button class="btn btn-secondary" id="back-to-current" style="margin-top:16px">🔙 返回当前</button>`;
+}
+
 async function loadCurrent() {
   try {
     currentRound = await authFetch('/api/admin/current-round');
@@ -277,6 +300,18 @@ async function loadCurrent() {
 }
 
 document.addEventListener('click', async (e) => {
+  // Check history round row click first (not a button)
+  const roundRow = e.target.closest('tr[data-round-id]');
+  if (roundRow) {
+    const rid = Number(roundRow.dataset.roundId);
+    try {
+      historyDetail = await authFetch(`/api/admin/round/${rid}`);
+      mode = 'history-detail';
+      render();
+    } catch (_) {}
+    return;
+  }
+
   const t = e.target.closest('button');
   if (!t) return;
 
@@ -346,6 +381,25 @@ document.addEventListener('click', async (e) => {
     return;
   }
 
+  if (t.id === 'show-players') {
+    mode = 'players';
+    try {
+      blockedPlayers = await authFetch('/api/admin/blocked-players');
+    } catch (_) {}
+    render();
+    return;
+  }
+
+  if (t.classList.contains('unblock-btn')) {
+    const cid = t.dataset.clientId;
+    try {
+      await authFetch(`/api/admin/blocked-players/${cid}/reset`, { method: 'POST' });
+      blockedPlayers = blockedPlayers.filter(p => p.client_id !== cid);
+      render();
+    } catch (_) {}
+    return;
+  }
+
   if (t.id === 'back-to-current') {
     mode = 'current';
     historyRounds = [];
@@ -358,18 +412,6 @@ document.addEventListener('click', async (e) => {
     mode = 'history';
     historyDetail = null;
     render();
-    return;
-  }
-
-  // Click on history round row
-  const roundRow = t.closest('tr[data-round-id]');
-  if (roundRow) {
-    const rid = Number(roundRow.dataset.roundId);
-    try {
-      historyDetail = await authFetch(`/api/admin/round/${rid}`);
-      mode = 'history-detail';
-      render();
-    } catch (_) {}
     return;
   }
 });

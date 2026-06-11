@@ -11,7 +11,7 @@ function rankGuesses(answer, guesses) {
     .sort((a, b) =>
       a.rankDiff - b.rankDiff ||
       a.suitMatch - b.suitMatch ||
-      a.submitted_at - b.submitted_at
+      a.submittedAt - b.submittedAt
     );
 }
 

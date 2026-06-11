@@ -1,5 +1,5 @@
 import { Router } from 'express';
-import { findOpenRound, findRoundById, findGuess, insertGuess, countGuesses } from '../db.js';
+import { findOpenRound, findRoundById, findGuess, insertGuess, countGuesses, isBlocked } from '../db.js';
 import { VALID_SUITS, VALID_RANKS } from '../config.js';
 import { broadcast } from '../ws.js';
 
@@ -33,6 +33,10 @@ router.post('/:id/guess', (req, res) => {
   }
   if (!VALID_SUITS.has(suit) || !VALID_RANKS.has(rank)) {
     return res.status(400).json({ error: 'invalid_input', message: '花色或面值无效' });
+  }
+
+  if (isBlocked(clientId)) {
+    return res.status(403).json({ error: 'blocked', message: '恭喜你已获奖，本轮暂不能参与' });
   }
 
   const round = findRoundById(id);

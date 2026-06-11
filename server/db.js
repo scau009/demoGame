@@ -30,6 +30,12 @@ db.exec(`
     UNIQUE(round_id, client_id)
   );
   CREATE INDEX IF NOT EXISTS idx_guesses_round ON guesses(round_id);
+  CREATE TABLE IF NOT EXISTS blocked_players (
+    client_id  TEXT PRIMARY KEY,
+    nickname   TEXT NOT NULL,
+    blocked_at INTEGER NOT NULL,
+    round_id   INTEGER NOT NULL
+  );
 `);
 
 const stmts = {
@@ -42,6 +48,10 @@ const stmts = {
   findGuessesByRound: db.prepare('SELECT * FROM guesses WHERE round_id = ? ORDER BY submitted_at ASC'),
   countGuesses: db.prepare('SELECT COUNT(*) AS cnt FROM guesses WHERE round_id = ?'),
   findAllRounds: db.prepare('SELECT * FROM rounds ORDER BY id DESC'),
+  findBlockedPlayers: db.prepare('SELECT * FROM blocked_players ORDER BY blocked_at DESC'),
+  blockPlayer: db.prepare('INSERT OR IGNORE INTO blocked_players (client_id, nickname, blocked_at, round_id) VALUES (?, ?, ?, ?)'),
+  unblockPlayer: db.prepare('DELETE FROM blocked_players WHERE client_id = ?'),
+  isBlocked: db.prepare('SELECT 1 FROM blocked_players WHERE client_id = ?'),
 };
 
 function findOpenRound() {
@@ -86,4 +96,21 @@ function findAllRounds() {
   return stmts.findAllRounds.all();
 }
 
-export { db, findOpenRound, findRoundById, insertRound, revealRound, findGuess, insertGuess, findGuessesByRound, countGuesses, findAllRounds };
+function findBlockedPlayers() {
+  return stmts.findBlockedPlayers.all();
+}
+
+function blockPlayer(clientId, nickname, roundId) {
+  const now = Math.floor(Date.now() / 1000);
+  stmts.blockPlayer.run(clientId, nickname, now, roundId);
+}
+
+function unblockPlayer(clientId) {
+  stmts.unblockPlayer.run(clientId);
+}
+
+function isBlocked(clientId) {
+  return stmts.isBlocked.get(clientId) !== undefined;
+}
+
+export { db, findOpenRound, findRoundById, insertRound, revealRound, findGuess, insertGuess, findGuessesByRound, countGuesses, findAllRounds, findBlockedPlayers, blockPlayer, unblockPlayer, isBlocked };

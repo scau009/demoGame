@@ -33,9 +33,9 @@ describe('rankGuesses', () => {
 
   it('exact match ranks first', () => {
     const guesses = [
-      { nickname: 'A', suit: 'spade', rank: 1, submitted_at: 100 },
-      { nickname: 'B', suit: 'heart', rank: 7, submitted_at: 200 },
-      { nickname: 'C', suit: 'club', rank: 13, submitted_at: 300 },
+      { nickname: 'A', suit: 'spade', rank: 1, submittedAt: 100 },
+      { nickname: 'B', suit: 'heart', rank: 7, submittedAt: 200 },
+      { nickname: 'C', suit: 'club', rank: 13, submittedAt: 300 },
     ];
     const r = rankGuesses(answer, guesses);
     assert.equal(r[0].nickname, 'B');
@@ -43,8 +43,8 @@ describe('rankGuesses', () => {
 
   it('smaller rank diff ranks higher', () => {
     const guesses = [
-      { nickname: 'A', suit: 'spade', rank: 5, submitted_at: 100 },
-      { nickname: 'B', suit: 'club', rank: 10, submitted_at: 200 },
+      { nickname: 'A', suit: 'spade', rank: 5, submittedAt: 100 },
+      { nickname: 'B', suit: 'club', rank: 10, submittedAt: 200 },
     ];
     const r = rankGuesses(answer, guesses);
     assert.equal(r[0].nickname, 'A');
@@ -53,8 +53,8 @@ describe('rankGuesses', () => {
 
   it('same rank diff, suit match wins', () => {
     const guesses = [
-      { nickname: 'A', suit: 'spade', rank: 5, submitted_at: 100 },
-      { nickname: 'B', suit: 'heart', rank: 5, submitted_at: 200 },
+      { nickname: 'A', suit: 'spade', rank: 5, submittedAt: 100 },
+      { nickname: 'B', suit: 'heart', rank: 5, submittedAt: 200 },
     ];
     const r = rankGuesses(answer, guesses);
     assert.equal(r[0].nickname, 'B');
@@ -63,8 +63,8 @@ describe('rankGuesses', () => {
 
   it('same score, earlier submission wins', () => {
     const guesses = [
-      { nickname: 'A', suit: 'spade', rank: 5, submitted_at: 200 },
-      { nickname: 'B', suit: 'spade', rank: 5, submitted_at: 100 },
+      { nickname: 'A', suit: 'spade', rank: 5, submittedAt: 200 },
+      { nickname: 'B', suit: 'spade', rank: 5, submittedAt: 100 },
     ];
     const r = rankGuesses(answer, guesses);
     assert.equal(r[0].nickname, 'B');

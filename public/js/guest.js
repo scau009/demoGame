@@ -211,7 +211,10 @@ document.addEventListener('click', async (e) => {
       myGuess = { suit: selectedSuit, rank: selectedRank };
       render();
     } catch (err) {
-      if (err.status === 409) {
+      if (err.status === 403) {
+        alert('恭喜你已获奖，本轮暂不能参与');
+        await loadCurrent();
+      } else if (err.status === 409) {
         alert('你已落子，不可悔棋！');
         myGuess = { suit: selectedSuit, rank: selectedRank };
         render();

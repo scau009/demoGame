@@ -1,6 +1,6 @@
 import { Router } from 'express';
 import { login, authMiddleware } from '../auth.js';
-import { findOpenRound, insertRound, findRoundById, revealRound, findGuessesByRound, countGuesses, findAllRounds } from '../db.js';
+import { findOpenRound, insertRound, findRoundById, revealRound, findGuessesByRound, countGuesses, findAllRounds, blockPlayer, findBlockedPlayers, unblockPlayer } from '../db.js';
 import { rankGuesses } from '../scoring.js';
 import { VALID_SUITS, VALID_RANKS } from '../config.js';
 import { broadcast } from '../ws.js';
@@ -49,6 +49,11 @@ router.post('/round/:id/reveal', authMiddleware, (req, res) => {
       submittedAt: g.submitted_at,
     }))
   );
+
+  // Block top 5 winners
+  for (const g of ranking.slice(0, 5)) {
+    blockPlayer(g.clientId, g.nickname, id);
+  }
 
   broadcast({
     event: 'round:revealed',
@@ -116,6 +121,18 @@ router.get('/current-round', authMiddleware, (_req, res) => {
     submittedAt: g.submitted_at,
   }));
   return res.json({ ...round, guessCount: count, guesses });
+});
+
+// GET /api/admin/blocked-players (被封禁玩家列表)
+router.get('/blocked-players', authMiddleware, (_req, res) => {
+  const list = findBlockedPlayers();
+  return res.json(list);
+});
+
+// POST /api/admin/blocked-players/:clientId/reset (解除封禁)
+router.post('/blocked-players/:clientId/reset', authMiddleware, (req, res) => {
+  unblockPlayer(req.params.clientId);
+  return res.json({ ok: true });
 });
 
 export default router;
