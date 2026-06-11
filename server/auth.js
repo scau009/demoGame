@@ -23,10 +23,15 @@ function verify(token) {
   return payload;
 }
 
+function safeEqual(a, b) {
+  if (a.length !== b.length) return false;
+  return timingSafeEqual(Buffer.from(a), Buffer.from(b));
+}
+
 function login(username, password) {
   if (!ADMIN_USERNAME || !ADMIN_PASSWORD) return null;
-  const userOk = timingSafeEqual(Buffer.from(username), Buffer.from(ADMIN_USERNAME));
-  const passOk = timingSafeEqual(Buffer.from(password), Buffer.from(ADMIN_PASSWORD));
+  const userOk = safeEqual(username, ADMIN_USERNAME);
+  const passOk = safeEqual(password, ADMIN_PASSWORD);
   if (!userOk || !passOk) return null;
   const now = Math.floor(Date.now() / 1000);
   const payload = { sub: 'admin', iat: now, exp: now + TOKEN_TTL_HOURS * 3600 };
