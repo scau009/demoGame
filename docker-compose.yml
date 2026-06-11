@@ -2,6 +2,8 @@ services:
   app:
     build: .
     restart: unless-stopped
+    ports:
+      - "3000:3000"
     volumes:
       - game_data:/app/data
     environment:
@@ -15,18 +17,5 @@ services:
       timeout: 5s
       retries: 3
 
-  caddy:
-    image: caddy:2-alpine
-    restart: unless-stopped
-    ports:
-      - "80:80"
-      - "443:443"
-    volumes:
-      - ./Caddyfile:/etc/caddy/Caddyfile:ro
-      - caddy_data:/data
-      - caddy_config:/config
-
 volumes:
   game_data:
-  caddy_data:
-  caddy_config:
