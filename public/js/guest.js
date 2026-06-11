@@ -18,9 +18,14 @@ let selectedRank = null;
 let nickname = getNickname();
 let clientId = getClientId();
 let nicknameSet = !!nickname;
+let showRules = false;
 
 function render() {
   const app = document.getElementById('app');
+  if (showRules) {
+    app.innerHTML = renderRules();
+    return;
+  }
   if (!nicknameSet) {
     app.innerHTML = renderNickname();
     return;
@@ -45,6 +50,7 @@ function renderNickname() {
   <input type="text" id="nickname-input" placeholder="取个响亮的称呼…" maxlength="12" autofocus>
   <p class="error-msg" id="name-err"></p>
   <button class="btn btn-primary" id="confirm-name" style="margin-top:16px">🎯 加入战局</button>
+  <button class="btn btn-secondary" id="show-rules" style="margin-top:12px">📖 游戏规则</button>
 </div>`;
 }
 
@@ -56,7 +62,8 @@ function renderWaiting() {
   <p style="font-size:1.05rem;color:var(--text-warm)">虚位以待</p>
   <p style="font-size:0.9rem;color:var(--muted)">等待庄家开局…</p>
   <p class="info-row">玩家：<strong>${escapeHtml(nickname)}</strong></p>
-</div>`;
+</div>
+<button class="btn btn-secondary" id="show-rules" style="margin-top:8px">📖 游戏规则</button>`;
 }
 
 function renderGuessForm() {
@@ -143,6 +150,62 @@ ${myRankText ? `<p class="info-row" style="margin-bottom:12px">${myRankText}</p>
 </table>`;
 }
 
+function renderRules() {
+  return `<div class="ornament" style="padding-top:20px">📖 游戏规则</div>
+<h1>扑克猜心</h1>
+<p class="deco-banner">✦ 心有灵犀 · 一战封神 ✦</p>
+
+<div class="card">
+  <h2>🎯 游戏目标</h2>
+  <p style="color:var(--text-warm);line-height:1.8;font-size:0.95rem">
+    庄家（管理员）暗中选定一张扑克牌作为<strong style="color:var(--gold-light)">谜底</strong>，
+    所有玩家各自猜测<span style="color:var(--gold-light)">花色</span>和<span style="color:var(--gold-light)">点数</span>，
+    揭榜后按接近程度排名。
+  </p>
+</div>
+
+<div class="card">
+  <h2>📋 计分规则</h2>
+  <ul style="color:var(--text-warm);line-height:2;font-size:0.9rem;padding-left:18px">
+    <li><strong>点数差</strong>越小排名越高（点数差 = |你的点数 − 谜底点数|）</li>
+    <li>点数差相同时，<strong>花色猜中</strong>者优先</li>
+    <li>分数完全相同时，<strong>先提交</strong>者获胜</li>
+  </ul>
+</div>
+
+<div class="card">
+  <h2>🏅 奖惩机制</h2>
+  <ul style="color:var(--text-warm);line-height:2;font-size:0.9rem;padding-left:18px">
+    <li>每轮 <strong style="color:var(--gold-light)">前 5 名</strong> 获奖 🎁</li>
+    <li>获奖者 <strong style="color:var(--red-bright)">禁止参与下一轮</strong></li>
+    <li>庄家可在后台「人员管理」中解禁</li>
+    <li>每轮限提交 <strong>一次</strong>，落子无悔</li>
+  </ul>
+</div>
+
+<div class="card" style="margin-bottom:8px">
+  <h2>💡 计分示例</h2>
+  <p style="color:var(--muted);font-size:0.8rem;margin-bottom:12px">假设谜底是 <strong style="color:var(--gold-light)">♥7</strong>（红心 7）</p>
+  <table class="ranking-table">
+    <thead><tr><th>玩家</th><th>猜测</th><th>点数差</th><th>花色</th><th>排名</th></tr></thead>
+    <tbody>
+      <tr><td>小明</td><td>♥7</td><td>0</td><td>✓</td><td><span class="rank-badge rank-1">1</span></td></tr>
+      <tr><td>小红</td><td>♥9</td><td>2</td><td>✓</td><td><span class="rank-badge rank-2">2</span></td></tr>
+      <tr><td>小刚</td><td>♠6</td><td>1</td><td>-</td><td><span class="rank-badge rank-3">3</span></td></tr>
+      <tr><td>小丽</td><td>♦5</td><td>2</td><td>-</td><td>4</td></tr>
+    </tbody>
+  </table>
+  <p style="color:var(--muted);font-size:0.8rem;margin-top:8px;line-height:1.6">
+    小明完全命中，稳居第 1 🥇<br>
+    小红虽然差 2 点，但花色猜中，力压小刚的差 1 点（花色不对）🥈<br>
+    小刚点数更近但花色没中，排第 3 🥉<br>
+    小丽点数差 2 且花色不对，排第 4
+  </p>
+</div>
+
+<button class="btn btn-primary" id="close-rules" style="margin-bottom:16px">🔙 返回</button>`;
+}
+
 function suitColor(s) {
   const m = { spade: '#C8D6E5', heart: '#FF6B7A', club: '#6BCB77', diamond: '#74B9FF' };
   return m[s] || '#FFF8E7';
@@ -174,6 +237,18 @@ async function loadCurrent() {
 document.addEventListener('click', async (e) => {
   const t = e.target.closest('button');
   if (!t) return;
+
+  if (t.id === 'show-rules') {
+    showRules = true;
+    render();
+    return;
+  }
+
+  if (t.id === 'close-rules') {
+    showRules = false;
+    render();
+    return;
+  }
 
   if (t.id === 'confirm-name') {
     const input = document.getElementById('nickname-input');
