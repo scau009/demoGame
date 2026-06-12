@@ -36,6 +36,35 @@ db.exec(`
     blocked_at INTEGER NOT NULL,
     round_id   INTEGER NOT NULL
   );
+  CREATE TABLE IF NOT EXISTS emoji_games (
+    id           INTEGER PRIMARY KEY AUTOINCREMENT,
+    status       TEXT    NOT NULL CHECK(status IN ('active','finished')),
+    current_seq  INTEGER NOT NULL DEFAULT 0,
+    created_at   INTEGER NOT NULL,
+    finished_at  INTEGER
+  );
+  CREATE INDEX IF NOT EXISTS idx_emoji_games_status ON emoji_games(status);
+  CREATE TABLE IF NOT EXISTS emoji_questions (
+    id          INTEGER PRIMARY KEY AUTOINCREMENT,
+    game_id     INTEGER NOT NULL REFERENCES emoji_games(id),
+    seq         INTEGER NOT NULL,
+    emoji       TEXT    NOT NULL,
+    answer      TEXT    NOT NULL,
+    answer_norm TEXT    NOT NULL,
+    hint        TEXT    NOT NULL,
+    status      TEXT    NOT NULL CHECK(status IN ('pending','active','solved')),
+    solved_by   TEXT,
+    solved_at   INTEGER
+  );
+  CREATE INDEX IF NOT EXISTS idx_emoji_questions_game ON emoji_questions(game_id, seq);
+  CREATE TABLE IF NOT EXISTS emoji_players (
+    game_id    INTEGER NOT NULL REFERENCES emoji_games(id),
+    client_id  TEXT    NOT NULL,
+    nickname   TEXT    NOT NULL,
+    score      INTEGER NOT NULL DEFAULT 0,
+    reached_at INTEGER,
+    PRIMARY KEY (game_id, client_id)
+  );
 `);
 
 const stmts = {
@@ -52,6 +81,22 @@ const stmts = {
   blockPlayer: db.prepare('INSERT OR IGNORE INTO blocked_players (client_id, nickname, blocked_at, round_id) VALUES (?, ?, ?, ?)'),
   unblockPlayer: db.prepare('DELETE FROM blocked_players WHERE client_id = ?'),
   isBlocked: db.prepare('SELECT 1 FROM blocked_players WHERE client_id = ?'),
+  findActiveEmojiGame: db.prepare("SELECT * FROM emoji_games WHERE status = 'active' LIMIT 1"),
+  findEmojiGameById: db.prepare('SELECT * FROM emoji_games WHERE id = ?'),
+  insertEmojiGame: db.prepare('INSERT INTO emoji_games (status, current_seq, created_at) VALUES (?, ?, ?)'),
+  setEmojiGameSeq: db.prepare('UPDATE emoji_games SET current_seq = ? WHERE id = ?'),
+  finishEmojiGame: db.prepare("UPDATE emoji_games SET status = 'finished', finished_at = ? WHERE id = ?"),
+  insertEmojiQuestion: db.prepare('INSERT INTO emoji_questions (game_id, seq, emoji, answer, answer_norm, hint, status) VALUES (?, ?, ?, ?, ?, ?, ?)'),
+  findEmojiQuestionsByGame: db.prepare('SELECT * FROM emoji_questions WHERE game_id = ? ORDER BY seq ASC'),
+  findEmojiQuestionBySeq: db.prepare('SELECT * FROM emoji_questions WHERE game_id = ? AND seq = ?'),
+  activateEmojiQuestion: db.prepare("UPDATE emoji_questions SET status = 'active' WHERE id = ?"),
+  solveEmojiQuestion: db.prepare("UPDATE emoji_questions SET status = 'solved', solved_by = ?, solved_at = ? WHERE id = ?"),
+  countEmojiQuestions: db.prepare('SELECT COUNT(*) AS cnt FROM emoji_questions WHERE game_id = ?'),
+  findEmojiPlayer: db.prepare('SELECT * FROM emoji_players WHERE game_id = ? AND client_id = ?'),
+  insertEmojiPlayer: db.prepare('INSERT INTO emoji_players (game_id, client_id, nickname, score, reached_at) VALUES (?, ?, ?, 0, NULL)'),
+  updateEmojiPlayerScore: db.prepare('UPDATE emoji_players SET score = ?, reached_at = ? WHERE game_id = ? AND client_id = ?'),
+  findEmojiPlayersByGame: db.prepare('SELECT * FROM emoji_players WHERE game_id = ?'),
+  countPromotedEmojiPlayers: db.prepare('SELECT COUNT(*) AS cnt FROM emoji_players WHERE game_id = ? AND score >= 3'),
 };
 
 function findOpenRound() {
@@ -113,4 +158,92 @@ function isBlocked(clientId) {
   return stmts.isBlocked.get(clientId) !== undefined;
 }
 
-export { db, findOpenRound, findRoundById, insertRound, revealRound, findGuess, insertGuess, findGuessesByRound, countGuesses, findAllRounds, findBlockedPlayers, blockPlayer, unblockPlayer, isBlocked };
+function findActiveEmojiGame() {
+  return stmts.findActiveEmojiGame.get() ?? null;
+}
+
+function findEmojiGameById(id) {
+  return stmts.findEmojiGameById.get(id) ?? null;
+}
+
+function createEmojiGame(questions) {
+  const now = Math.floor(Date.now() / 1000);
+  const tx = db.transaction((qs) => {
+    const info = stmts.insertEmojiGame.run('active', 0, now);
+    const gameId = Number(info.lastInsertRowid);
+    qs.forEach((q, i) => {
+      const status = i === 0 ? 'active' : 'pending';
+      stmts.insertEmojiQuestion.run(gameId, i, q.emoji, q.answer, q.answerNorm, q.hint, status);
+    });
+    return gameId;
+  });
+  const gameId = tx(questions);
+  return findEmojiGameById(gameId);
+}
+
+function findEmojiQuestionsByGame(gameId) {
+  return stmts.findEmojiQuestionsByGame.all(gameId);
+}
+
+function findEmojiQuestionBySeq(gameId, seq) {
+  return stmts.findEmojiQuestionBySeq.get(gameId, seq) ?? null;
+}
+
+function countEmojiQuestions(gameId) {
+  return stmts.countEmojiQuestions.get(gameId).cnt;
+}
+
+function advanceEmojiQuestion(gameId, nextSeq) {
+  const q = findEmojiQuestionBySeq(gameId, nextSeq);
+  if (!q) return null;
+  const tx = db.transaction(() => {
+    stmts.activateEmojiQuestion.run(q.id);
+    stmts.setEmojiGameSeq.run(nextSeq, gameId);
+  });
+  tx();
+  return findEmojiQuestionBySeq(gameId, nextSeq);
+}
+
+function findEmojiPlayer(gameId, clientId) {
+  return stmts.findEmojiPlayer.get(gameId, clientId) ?? null;
+}
+
+function ensureEmojiPlayer(gameId, clientId, nickname) {
+  const existing = findEmojiPlayer(gameId, clientId);
+  if (existing) return existing;
+  stmts.insertEmojiPlayer.run(gameId, clientId, nickname);
+  return findEmojiPlayer(gameId, clientId);
+}
+
+function findEmojiPlayersByGame(gameId) {
+  return stmts.findEmojiPlayersByGame.all(gameId);
+}
+
+// Atomic buzz-in: lock the question to this solver, award +1, set reached_at at 3,
+// and finish the game if 4 players are now promoted. Returns the resulting state.
+function solveEmojiQuestion(gameId, questionId, clientId) {
+  const now = Math.floor(Date.now() / 1000);
+  const tx = db.transaction(() => {
+    stmts.solveEmojiQuestion.run(clientId, now, questionId);
+    const player = stmts.findEmojiPlayer.get(gameId, clientId);
+    const newScore = player.score + 1;
+    const reachedAt = newScore === 3 ? now : player.reached_at;
+    stmts.updateEmojiPlayerScore.run(newScore, reachedAt, gameId, clientId);
+    const promoted = stmts.countPromotedEmojiPlayers.get(gameId).cnt;
+    let finished = false;
+    if (promoted >= 4) {
+      stmts.finishEmojiGame.run(now, gameId);
+      finished = true;
+    }
+    return { newScore, reachedAt, promoted, finished };
+  });
+  return tx();
+}
+
+function finishEmojiGame(gameId) {
+  const now = Math.floor(Date.now() / 1000);
+  stmts.finishEmojiGame.run(now, gameId);
+  return now;
+}
+
+export { db, findOpenRound, findRoundById, insertRound, revealRound, findGuess, insertGuess, findGuessesByRound, countGuesses, findAllRounds, findBlockedPlayers, blockPlayer, unblockPlayer, isBlocked, findActiveEmojiGame, findEmojiGameById, createEmojiGame, findEmojiQuestionsByGame, findEmojiQuestionBySeq, countEmojiQuestions, advanceEmojiQuestion, findEmojiPlayer, ensureEmojiPlayer, findEmojiPlayersByGame, solveEmojiQuestion, finishEmojiGame };

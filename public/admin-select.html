@@ -1,0 +1,42 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, user-scalable=no">
+  <title>管理后台 — 游戏大厅</title>
+  <link rel="stylesheet" href="/css/style.css">
+</head>
+<body>
+  <div class="clouds-layer">
+    <div class="cloud c1"></div>
+    <div class="cloud c2"></div>
+    <div class="cloud c3"></div>
+    <div class="cloud c4"></div>
+    <div class="cloud c5"></div>
+    <div class="cloud c6"></div>
+  </div>
+  <div class="container" id="app"></div>
+  <script>
+    async function render() {
+      const app = document.getElementById('app');
+      let active = null;
+      try { active = await (await fetch('/api/active-game')).json(); } catch (_) {}
+      const banner = active
+        ? `<p class="deco-banner" style="color:var(--gold-light)">✦ 进行中：${active.type === 'poker' ? '扑克猜心' : 'Emoji 猜词'} ✦</p>`
+        : `<p class="deco-banner">✦ 庄家席 · 选择游戏 ✦</p>`;
+      app.innerHTML = `<div class="ornament" style="padding-top:40px">🎪 庄家后台 🎪</div>
+<h1>选择游戏</h1>
+${banner}
+<div class="card" style="margin-top:32px">
+  <h2 style="text-align:center">🂡 扑克猜心</h2>
+  <a href="/admin/poker"><button class="btn btn-primary">管理扑克猜心</button></a>
+</div>
+<div class="card" style="margin-top:16px">
+  <h2 style="text-align:center">🧩 Emoji 猜词</h2>
+  <a href="/admin/emoji"><button class="btn btn-primary">管理 Emoji 猜词</button></a>
+</div>`;
+    }
+    render();
+  </script>
+</body>
+</html>

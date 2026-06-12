@@ -4,6 +4,7 @@ import { findOpenRound, insertRound, findRoundById, revealRound, findGuessesByRo
 import { rankGuesses } from '../scoring.js';
 import { VALID_SUITS, VALID_RANKS } from '../config.js';
 import { broadcast } from '../ws.js';
+import { activeGame } from '../active-game.js';
 
 const router = Router();
 
@@ -17,8 +18,11 @@ router.post('/login', (req, res) => {
 
 // POST /api/admin/round
 router.post('/round', authMiddleware, (req, res) => {
-  const open = findOpenRound();
-  if (open) return res.status(409).json({ error: 'round_exists', message: '已有进行中的局，请先公布上一局' });
+  const active = activeGame();
+  if (active) {
+    const msg = active.type === 'emoji' ? 'Emoji 猜词进行中，请先结束' : '已有进行中的局，请先公布上一局';
+    return res.status(409).json({ error: 'game_active', message: msg });
+  }
 
   const { suit, rank } = req.body;
   if (!VALID_SUITS.has(suit) || !VALID_RANKS.has(rank)) {
